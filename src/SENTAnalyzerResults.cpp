@@ -2,10 +2,12 @@
 #include <AnalyzerHelpers.h>
 #include "SENTAnalyzer.h"
 #include "SENTAnalyzerSettings.h"
+#include "SENTProfiles.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <vector>
 
 SENTAnalyzerResults::SENTAnalyzerResults( SENTAnalyzer* analyzer, SENTAnalyzerSettings* settings )
 :   AnalyzerResults(),
@@ -47,7 +49,6 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
 
         case DataNibble:
             {
-                /* frame.mData2 stores the nibble index (0..5) */
                 U8 nib_idx = (U8)frame.mData2;
                 char buf1[64], buf2[32];
                 snprintf( buf1, sizeof(buf1), "Data D%u: %s", nib_idx, val_str );
@@ -161,8 +162,7 @@ void SENTAnalyzerResults::GeneratePacketTabularText( U64 packet_id, DisplayBase 
     GetFramesContainedInPacket( packet_id, &first_frame_id, &last_frame_id );
 
     U8 status = 0;
-    U8 d[6] = {0};
-    U8 d_count = 0;
+    std::vector<U8> d;
     U8 crc = 0;
     U16 pause_ticks = 0;
     bool crc_ok = true;
@@ -177,9 +177,9 @@ void SENTAnalyzerResults::GeneratePacketTabularText( U64 packet_id, DisplayBase 
         }
         else if( f.mType == DataNibble )
         {
-            if( d_count < 6 )
+            if( d.size() < 6 )
             {
-                d[d_count++] = (U8)(f.mData1 & 0xF);
+                d.push_back( (U8)(f.mData1 & 0xF) );
             }
         }
         else if( f.mType == CRCNibble )
@@ -206,14 +206,13 @@ void SENTAnalyzerResults::GeneratePacketTabularText( U64 packet_id, DisplayBase 
         return;
     }
 
-    /* Fast Data 1 (12-bit) and Fast Data 2 (12-bit) */
-    U16 fast1 = ( (U16)d[0] << 8 ) | ( (U16)d[1] << 4 ) | (U16)d[2];
-    U16 fast2 = ( (U16)d[3] << 8 ) | ( (U16)d[4] << 4 ) | (U16)d[5];
+    /* Decode according to configured profile */
+    DecodedProfileResult pres = SENTProfiles::DecodeFrame( mSettings->mProfileType, d, status );
 
     char packet_str[256];
     snprintf( packet_str, sizeof(packet_str),
-              "SENT | Status: 0x%X | Fast1: %u (0x%03X) | Fast2: %u (0x%03X) | CRC: 0x%X [%s] | Pause: %uT",
-              status, fast1, fast1, fast2, fast2, crc, crc_ok ? "PASS" : "FAIL", pause_ticks );
+              "SENT | %s | Status: 0x%X | CRC: 0x%X [%s] | Pause: %uT",
+              pres.tabular_summary.c_str(), status, crc, crc_ok ? "PASS" : "FAIL", pause_ticks );
 
     AddTabularText( packet_str );
 }
@@ -230,7 +229,7 @@ void SENTAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
     U32 sample_rate = mAnalyzer->GetSampleRate();
 
     std::ofstream file_stream( file, std::ios::out );
-    file_stream << "Packet ID,Time [s],Status,FastData1,FastData2,CRC,CRC_Status,Pause_Ticks" << std::endl;
+    file_stream << "Packet ID,Time [s],Profile,Decoded Summary,Status,CRC,CRC_Status,Pause_Ticks" << std::endl;
 
     for( U32 i = 0; i < number_of_packets; i++ )
     {
@@ -244,8 +243,7 @@ void SENTAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         AnalyzerHelpers::GetTimeString( first_f.mStartingSampleInclusive, trigger_sample, sample_rate, time_str, sizeof(time_str) );
 
         U8 status = 0;
-        U8 d[6] = {0};
-        U8 d_count = 0;
+        std::vector<U8> d;
         U8 crc = 0;
         U16 pause = 0;
         bool crc_ok = true;
@@ -254,7 +252,7 @@ void SENTAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
         {
             Frame f = GetFrame( fid );
             if( f.mType == StatusNibble ) status = (U8)(f.mData1 & 0xF);
-            else if( f.mType == DataNibble && d_count < 6 ) d[d_count++] = (U8)(f.mData1 & 0xF);
+            else if( f.mType == DataNibble && d.size() < 6 ) d.push_back( (U8)(f.mData1 & 0xF) );
             else if( f.mType == CRCNibble ) {
                 crc = (U8)(f.mData1 & 0xF);
                 if( (f.mFlags & (1 << CrcError)) != 0 ) crc_ok = false;
@@ -262,12 +260,12 @@ void SENTAnalyzerResults::GenerateExportFile( const char* file, DisplayBase disp
             else if( f.mType == PausePulse ) pause = (U16)f.mData1;
         }
 
-        U16 fast1 = ( (U16)d[0] << 8 ) | ( (U16)d[1] << 4 ) | (U16)d[2];
-        U16 fast2 = ( (U16)d[3] << 8 ) | ( (U16)d[4] << 4 ) | (U16)d[5];
+        DecodedProfileResult pres = SENTProfiles::DecodeFrame( mSettings->mProfileType, d, status );
 
-        file_stream << i << "," << time_str << ",0x" << std::hex << (int)status << std::dec
-                    << "," << fast1 << "," << fast2 << ",0x" << std::hex << (int)crc << std::dec
-                    << "," << (crc_ok ? "PASS" : "FAIL") << "," << pause << std::endl;
+        file_stream << i << "," << time_str << ",\"" << pres.profile_name << "\",\""
+                    << pres.tabular_summary << "\",0x" << std::hex << (int)status << std::dec
+                    << ",0x" << std::hex << (int)crc << std::dec << ","
+                    << (crc_ok ? "PASS" : "FAIL") << "," << pause << std::endl;
 
         if( UpdateExportProgressAndCheckForCancel( i, number_of_packets ) == true )
         {

@@ -23,6 +23,8 @@ src/SENTAnalyzerSettings.cpp
 src/SENTAnalyzerSettings.h
 src/SENTSimulationDataGenerator.cpp
 src/SENTSimulationDataGenerator.h
+src/SENTProfiles.cpp
+src/SENTProfiles.h
 )
 
 add_analyzer_plugin(${PROJECT_NAME} SOURCES ${SOURCES})

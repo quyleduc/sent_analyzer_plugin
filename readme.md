@@ -4,13 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Saleae Logic 2](https://img.shields.io/badge/Saleae%20Logic-2.4%2B-green.svg)](https://www.saleae.com/)
 
-A high-performance C++ Low-Level Analyzer (LLA) plugin for **Saleae Logic 2** that decodes the **SAE J2716 SENT (Single Edge Nibble Transmission)** protocol.
+A high-performance C++ Low-Level Analyzer (LLA) plugin for **Saleae Logic 2** that decodes the **SAE J2716 SENT (Single Edge Nibble Transmission)** automotive sensor protocol with full support for **SAE J2716 Sensor Profiles**.
 
 ---
 
 ## ⚡ Key Features
 
-- **Data Table View**: Complete frame summaries directly in Saleae Logic 2 Data Table (`Status`, `Fast Data 1`, `Fast Data 2`, `CRC`, `Pause`, `CRC Check`).
+- **SAE J2716 Sensor Profiles**: Decode raw nibbles directly into physical engineering units (°C, kPa, kg/h, %, Rolling Counter).
+- **Data Table View**: Complete frame summaries directly in Saleae Logic 2 Data Table (`Profile`, `Status`, `Physical Channel 1`, `Physical Channel 2`, `CRC`, `Pause`, `CRC Check`).
 - **Adaptive Bubble Text**: Dynamic multi-tier labels scaling with zoom level (`SYNC (56T)`, `Status: 0x0`, `D0: 4` ... `CRC: 0xA [PASS]`, `Pause: 110T`).
 - **SAE J2716 Standard CRC-4**:
   - **Legacy Mode**: 6 data nibbles, seed = 5 (`CRC4_TABLE[crc ^ data]`).
@@ -18,7 +19,20 @@ A high-performance C++ Low-Level Analyzer (LLA) plugin for **Saleae Logic 2** th
   - Distinct visual error markers on CRC mismatch.
 - **Pause Pulse Support**: Automatic detection and measurement of fixed frame period pause pulses ($\ge 12\text{ ticks}$).
 - **Dynamic Clock Calibration**: Automatic tick-time tracking from each 56-tick Sync pulse with a $\pm 20\%$ drift tolerance window.
-- **Cross-Platform**: Windows (x86_64, ARM64), macOS (Intel, Apple Silicon), and Linux (x86_64, ARM64).
+- **Cross-Platform**: Windows (x86_64, ARM64), macOS (Intel & Apple Silicon Universal), and Linux (x86_64).
+
+---
+
+## 🏎️ Supported SAE J2716 Sensor Profiles
+
+| Profile | Target Application | Channel 1 Decoding | Channel 2 Decoding | Safety / Diagnostic Checks |
+|---|---|---|---|---|
+| **Raw Fast Channels** | Generic / Custom | Fast 1 (12-bit raw) | Fast 2 (12-bit raw) | Raw hex & decimal display |
+| **A.1: Dual Throttle (TPS)** | Electronic Throttle / Pedal | Throttle 1 ($0.0 - 100.0\%$) | Throttle 2 ($0.0 - 100.0\%$) | Redundancy cross-check ($\text{TPS}_1 + \text{TPS}_2 \approx 4095$) |
+| **A.2: TMAP** | Manifold Air Pressure & Temp | Pressure ($20.0 - 300.0\text{ kPa}$) | Temp ($-40.0 - +150.0\text{ }^\circ\text{C}$) | Physical range validation |
+| **A.3: Mass Air Flow (MAF)**| Intake Air Flow & Temp | Flow ($14\text{-bit}, 0 - 640\text{ kg/h}$) | Temp ($10\text{-bit}, -40 - +120\text{ }^\circ\text{C}$)| Non-uniform bit slicing ($14\text{b} + 10\text{b}$) |
+| **A.4: Secure Sensor** | Steering Angle / Safety | Signal (12-bit) | Rolling Counter ($8\text{-bit}, 0 - 255$)| Inverted nibble integrity check ($\text{D}_0 \oplus \text{D}_5 = 0\text{xF}$) |
+| **A.5: Single High Res** | High-Precision Sensor | High-Res Signal ($16\text{-bit}$) | Diagnostic ($8\text{-bit}$) | 4-nibble aggregation |
 
 ---
 
@@ -56,6 +70,7 @@ A high-performance C++ Low-Level Analyzer (LLA) plugin for **Saleae Logic 2** th
 | **Pause pulse** | Bool | `True` | Enable fixed-period frame mode with pause pulse. |
 | **Number of data nibbles**| Integer | `6` | Number of fast data nibbles per frame (e.g. 6 nibbles = two 12-bit signals). |
 | **Legacy CRC** | Bool | `True` | `True`: Legacy CRC (6 nibbles, seed=5). `False`: APR2016 (7 nibbles, seed=3). |
+| **Sensor Profile** | Choice | `Raw (12b+12b)` | Choose SAE J2716 sensor profile for physical unit conversion. |
 
 ---
 
@@ -80,7 +95,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-Automated helper scripts are also provided:
+Automated helper scripts:
 - **Windows**: `.\build.ps1`
 - **Linux / macOS**: `./build.sh`
 

@@ -3,6 +3,7 @@
 
 #include <AnalyzerSettings.h>
 #include <AnalyzerTypes.h>
+#include "SENTProfiles.h"
 
 class SENTAnalyzerSettings : public AnalyzerSettings
 {
@@ -16,17 +17,19 @@ public:
     virtual const char* SaveSettings();
 
     Channel mInputChannel;
-    U32 mTickTimeHalfUs;       /* 1..100 half-microseconds (e.g. 6 = 3.0 us) */
-    bool mPausePulseEnabled;    /* true: 10 pulses/frame with pause pulse */
-    U32 mNumberOfDataNibbles;  /* 1..6 data nibbles */
-    bool mLegacyCrc;           /* true: Legacy CRC (6 nibbles, seed=5); false: APR2016 (7 nibbles, seed=3) */
+    U32 mTickTimeHalfUs;          /* 1..100 half-microseconds (e.g. 6 = 3.0 us) */
+    bool mPausePulseEnabled;       /* true: 10 pulses/frame with pause pulse */
+    U32 mNumberOfDataNibbles;     /* 1..6 data nibbles */
+    bool mLegacyCrc;              /* true: Legacy CRC (6 nibbles, seed=5); false: APR2016 (7 nibbles, seed=3) */
+    SENTProfileType mProfileType; /* SAE J2716 sensor profile */
 
 protected:
-    std::unique_ptr<AnalyzerSettingInterfaceChannel> mInputChannelInterface;
-    std::unique_ptr<AnalyzerSettingInterfaceInteger> mTickTimeInterface;
-    std::unique_ptr<AnalyzerSettingInterfaceBool>    mPausePulseInterface;
-    std::unique_ptr<AnalyzerSettingInterfaceInteger> mNumberOfDataNibblesInterface;
-    std::unique_ptr<AnalyzerSettingInterfaceBool>    mLegacyCrcInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceChannel>    mInputChannelInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceInteger>    mTickTimeInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceBool>       mPausePulseInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceInteger>    mNumberOfDataNibblesInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceBool>       mLegacyCrcInterface;
+    std::unique_ptr<AnalyzerSettingInterfaceNumberList> mProfileInterface;
 };
 
 #endif // SENT_ANALYZER_SETTINGS
