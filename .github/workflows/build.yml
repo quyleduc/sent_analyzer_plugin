@@ -25,7 +25,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows_x86_64
-          path: build/Analyzers/Release/*.dll
+          path: build/Analyzers/Release/SENTAnalyzer.dll
 
   macos:
     name: Build macOS (Intel & Apple Silicon)
@@ -69,6 +69,8 @@ jobs:
     name: Package & Publish Release
     needs: [windows-x86_64, macos, linux-x86_64]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
@@ -82,14 +84,13 @@ jobs:
           zip -r ../sent_analyzer_all_platforms.zip .
           cd ..
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            sent_analyzer_all_platforms.zip
-            artifacts/windows_x86_64/*
-            artifacts/macos_universal/*
-            artifacts/linux_x86_64/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
+            sent_analyzer_all_platforms.zip \
+            artifacts/windows_x86_64/* \
+            artifacts/macos_universal/* \
+            artifacts/linux_x86_64/* || true
