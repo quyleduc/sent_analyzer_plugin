@@ -1,5 +1,6 @@
 #include "SENTAnalyzer.h"
 #include "SENTAnalyzerSettings.h"
+#include "SENTProfiles.h"
 #include <AnalyzerChannelData.h>
 #include <cmath>
 #include <vector>
@@ -114,14 +115,41 @@ void SENTAnalyzer::WorkerThread()
                 U8 expected_crc = CalculateCRC( status_val, data_nibbles );
                 bool crc_ok = ( received_crc == expected_crc );
 
+                /* Pre-calculate Fast 1 and Fast 2 full values */
+                U16 fast1 = 0, fast2 = 0;
+                if( data_nibbles.size() == 6 )
+                {
+                    fast1 = ( (U16)data_nibbles[0] << 8 ) | ( (U16)data_nibbles[1] << 4 ) | data_nibbles[2];
+                    fast2 = ( (U16)data_nibbles[3] << 8 ) | ( (U16)data_nibbles[4] << 4 ) | data_nibbles[5];
+                }
+
                 for( size_t fi = 0; fi < current_packet_frames.size(); fi++ )
                 {
                     Frame f = current_packet_frames[fi];
                     if( f.mType == CRCNibble && !crc_ok )
                     {
                         f.mFlags |= (1 << CrcError);
-                        f.mData2 = expected_crc; /* Store expected CRC */
                     }
+                    else if( f.mType == DataNibble )
+                    {
+                        U8 nib_idx = (U8)(f.mData2 & 0xF);
+                        if( nib_idx < 3 )
+                        {
+                            /* Store fast1 in upper bits of mData2 */
+                            f.mData2 = ((U64)fast1 << 8) | nib_idx;
+                        }
+                        else
+                        {
+                            /* Store fast2 in upper bits of mData2 */
+                            f.mData2 = ((U64)fast2 << 8) | nib_idx;
+                        }
+                    }
+                    else if( f.mType == PausePulse )
+                    {
+                        /* Store fast1 and fast2 in mData2 of pause pulse */
+                        f.mData2 = ((U64)fast2 << 16) | (U64)fast1;
+                    }
+
                     mResults->AddFrame( f );
                     mResults->CommitResults();
                     ReportProgress( f.mEndingSampleInclusive );

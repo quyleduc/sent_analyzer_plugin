@@ -52,11 +52,68 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
 
         case DataNibble:
             {
-                U8 nib_idx = (U8)frame.mData2;
+                U8 nib_idx = (U8)(frame.mData2 & 0xF);
+                U16 full_raw = (U16)(frame.mData2 >> 8);
+
+                if( mSettings->mProfileType == PROFILE_TMAP_A2 )
+                {
+                    if( nib_idx == 0 )
+                    {
+                        double p_kpa = 20.0 + ( (double)full_raw / 4095.0 ) * 280.0;
+                        char b1[64], b2[32], b3[16];
+                        snprintf( b1, sizeof(b1), "D0: %s (P: %.1f kPa)", val_hex, p_kpa );
+                        snprintf( b2, sizeof(b2), "P: %.1f kPa", p_kpa );
+                        snprintf( b3, sizeof(b3), "D0:%s", val_hex );
+                        AddResultString( b1 );
+                        AddResultString( b2 );
+                        AddResultString( b3 );
+                        break;
+                    }
+                    else if( nib_idx == 3 )
+                    {
+                        double t_c = -40.0 + ( (double)full_raw / 4095.0 ) * 190.0;
+                        char b1[64], b2[32], b3[16];
+                        snprintf( b1, sizeof(b1), "D3: %s (T: %.1f °C)", val_hex, t_c );
+                        snprintf( b2, sizeof(b2), "T: %.1f °C", t_c );
+                        snprintf( b3, sizeof(b3), "D3:%s", val_hex );
+                        AddResultString( b1 );
+                        AddResultString( b2 );
+                        AddResultString( b3 );
+                        break;
+                    }
+                }
+                else if( mSettings->mProfileType == PROFILE_DUAL_THROTTLE_A1 )
+                {
+                    if( nib_idx == 0 )
+                    {
+                        double pct = ( (double)full_raw / 4095.0 ) * 100.0;
+                        char b1[64], b2[32], b3[16];
+                        snprintf( b1, sizeof(b1), "D0: %s (TPS1: %.1f%%)", val_hex, pct );
+                        snprintf( b2, sizeof(b2), "TPS1: %.1f%%", pct );
+                        snprintf( b3, sizeof(b3), "D0:%s", val_hex );
+                        AddResultString( b1 );
+                        AddResultString( b2 );
+                        AddResultString( b3 );
+                        break;
+                    }
+                    else if( nib_idx == 3 )
+                    {
+                        double pct = ( (double)full_raw / 4095.0 ) * 100.0;
+                        char b1[64], b2[32], b3[16];
+                        snprintf( b1, sizeof(b1), "D3: %s (TPS2: %.1f%%)", val_hex, pct );
+                        snprintf( b2, sizeof(b2), "TPS2: %.1f%%", pct );
+                        snprintf( b3, sizeof(b3), "D3:%s", val_hex );
+                        AddResultString( b1 );
+                        AddResultString( b2 );
+                        AddResultString( b3 );
+                        break;
+                    }
+                }
+
                 char b1[64], b2[32], b3[16];
                 snprintf( b1, sizeof(b1), "Data D%u: %s", nib_idx, val_hex );
                 snprintf( b2, sizeof(b2), "D%u: %s", nib_idx, val_hex );
-                snprintf( b3, sizeof(b3), "D%u:%u", nib_idx, (U32)frame.mData1 );
+                snprintf( b3, sizeof(b3), "D%u:%s", nib_idx, val_hex );
                 AddResultString( b1 );
                 AddResultString( b2 );
                 AddResultString( b3 );
@@ -88,6 +145,38 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
         case PausePulse:
             {
                 U32 p_ticks = (U32)frame.mData1;
+                U16 fast1 = (U16)(frame.mData2 & 0xFFFF);
+                U16 fast2 = (U16)(frame.mData2 >> 16);
+
+                if( mSettings->mProfileType == PROFILE_TMAP_A2 && (fast1 > 0 || fast2 > 0) )
+                {
+                    double p_kpa = 20.0 + ( (double)fast1 / 4095.0 ) * 280.0;
+                    double t_c = -40.0 + ( (double)fast2 / 4095.0 ) * 190.0;
+                    char b1[128], b2[64], b3[32];
+                    snprintf( b1, sizeof(b1), "[A.2 TMAP] P: %.1f kPa | T: %.1f °C (Pause: %uT)", p_kpa, t_c, p_ticks );
+                    snprintf( b2, sizeof(b2), "P: %.1f kPa | T: %.1f °C", p_kpa, t_c );
+                    snprintf( b3, sizeof(b3), "%.0f kPa, %.0f °C", p_kpa, t_c );
+                    AddResultString( b1 );
+                    AddResultString( b2 );
+                    AddResultString( b3 );
+                    AddResultString( "P" );
+                    break;
+                }
+                else if( mSettings->mProfileType == PROFILE_DUAL_THROTTLE_A1 && (fast1 > 0 || fast2 > 0) )
+                {
+                    double pct1 = ( (double)fast1 / 4095.0 ) * 100.0;
+                    double pct2 = ( (double)fast2 / 4095.0 ) * 100.0;
+                    char b1[128], b2[64], b3[32];
+                    snprintf( b1, sizeof(b1), "[A.1 TPS] TPS1: %.1f%% | TPS2: %.1f%% (Pause: %uT)", pct1, pct2, p_ticks );
+                    snprintf( b2, sizeof(b2), "TPS1: %.1f%% | TPS2: %.1f%%", pct1, pct2 );
+                    snprintf( b3, sizeof(b3), "%.0f%% / %.0f%%", pct1, pct2 );
+                    AddResultString( b1 );
+                    AddResultString( b2 );
+                    AddResultString( b3 );
+                    AddResultString( "P" );
+                    break;
+                }
+
                 char b1[64], b2[32], b3[16];
                 snprintf( b1, sizeof(b1), "Pause: %u Ticks", p_ticks );
                 snprintf( b2, sizeof(b2), "Pause: %uT", p_ticks );
@@ -136,7 +225,7 @@ void SENTAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase
     char val_hex[32];
     AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, val_hex, sizeof(val_hex) );
 
-    char text[128];
+    char text[256];
     switch( (SENTNibbleType)frame.mType )
     {
         case SyncPulse:
@@ -146,13 +235,66 @@ void SENTAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase
             snprintf( text, sizeof(text), "Status: %s", val_hex );
             break;
         case DataNibble:
-            snprintf( text, sizeof(text), "Data D%u: %s", (U32)frame.mData2, val_hex );
+            {
+                U8 nib_idx = (U8)(frame.mData2 & 0xF);
+                U16 full_raw = (U16)(frame.mData2 >> 8);
+                if( mSettings->mProfileType == PROFILE_TMAP_A2 )
+                {
+                    if( nib_idx == 0 )
+                    {
+                        double p_kpa = 20.0 + ( (double)full_raw / 4095.0 ) * 280.0;
+                        snprintf( text, sizeof(text), "Data D0: %s -> Pressure: %.1f kPa (0x%03X)", val_hex, p_kpa, full_raw );
+                        break;
+                    }
+                    else if( nib_idx == 3 )
+                    {
+                        double t_c = -40.0 + ( (double)full_raw / 4095.0 ) * 190.0;
+                        snprintf( text, sizeof(text), "Data D3: %s -> Temp: %.1f °C (0x%03X)", val_hex, t_c, full_raw );
+                        break;
+                    }
+                }
+                else if( mSettings->mProfileType == PROFILE_DUAL_THROTTLE_A1 )
+                {
+                    if( nib_idx == 0 )
+                    {
+                        double pct = ( (double)full_raw / 4095.0 ) * 100.0;
+                        snprintf( text, sizeof(text), "Data D0: %s -> TPS1: %.1f%% (0x%03X)", val_hex, pct, full_raw );
+                        break;
+                    }
+                    else if( nib_idx == 3 )
+                    {
+                        double pct = ( (double)full_raw / 4095.0 ) * 100.0;
+                        snprintf( text, sizeof(text), "Data D3: %s -> TPS2: %.1f%% (0x%03X)", val_hex, pct, full_raw );
+                        break;
+                    }
+                }
+                snprintf( text, sizeof(text), "Data D%u: %s", (U32)nib_idx, val_hex );
+            }
             break;
         case CRCNibble:
-            snprintf( text, sizeof(text), "CRC: %s%s", val_hex, (frame.mFlags & (1 << CrcError)) ? " (CRC ERROR)" : " (OK)" );
+            snprintf( text, sizeof(text), "CRC: %s%s", val_hex, (frame.mFlags & (1 << CrcError)) ? " (CRC ERROR)" : " (PASS)" );
             break;
         case PausePulse:
-            snprintf( text, sizeof(text), "Pause: %u Ticks (%s)", (U32)frame.mData1, val_hex );
+            {
+                U16 fast1 = (U16)(frame.mData2 & 0xFFFF);
+                U16 fast2 = (U16)(frame.mData2 >> 16);
+                if( mSettings->mProfileType == PROFILE_TMAP_A2 && (fast1 > 0 || fast2 > 0) )
+                {
+                    double p_kpa = 20.0 + ( (double)fast1 / 4095.0 ) * 280.0;
+                    double t_c = -40.0 + ( (double)fast2 / 4095.0 ) * 190.0;
+                    snprintf( text, sizeof(text), "[A.2 TMAP] Pressure: %.1f kPa | Temp: %.1f °C | Pause: %uT", p_kpa, t_c, (U32)frame.mData1 );
+                }
+                else if( mSettings->mProfileType == PROFILE_DUAL_THROTTLE_A1 && (fast1 > 0 || fast2 > 0) )
+                {
+                    double pct1 = ( (double)fast1 / 4095.0 ) * 100.0;
+                    double pct2 = ( (double)fast2 / 4095.0 ) * 100.0;
+                    snprintf( text, sizeof(text), "[A.1 TPS] TPS1: %.1f%% | TPS2: %.1f%% | Pause: %uT", pct1, pct2, (U32)frame.mData1 );
+                }
+                else
+                {
+                    snprintf( text, sizeof(text), "Pause: %u Ticks (%s)", (U32)frame.mData1, val_hex );
+                }
+            }
             break;
         case ErrorPulse:
         default:
