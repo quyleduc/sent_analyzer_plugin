@@ -25,67 +25,76 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
     ClearResultStrings();
     Frame frame = GetFrame( frame_index );
 
-    char val_str[64];
-    AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, val_str, sizeof(val_str) );
+    char val_hex[32];
+    AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, val_hex, sizeof(val_hex) );
 
     switch( (SENTNibbleType)frame.mType )
     {
         case SyncPulse:
+            AddResultString( "SYNC (56 Ticks)" );
             AddResultString( "SYNC (56T)" );
             AddResultString( "SYNC" );
+            AddResultString( "56T" );
             AddResultString( "S" );
             break;
 
         case StatusNibble:
             {
-                char buf1[64], buf2[32];
-                snprintf( buf1, sizeof(buf1), "Status: %s", val_str );
-                snprintf( buf2, sizeof(buf2), "St: %s", val_str );
-                AddResultString( buf1 );
-                AddResultString( buf2 );
-                AddResultString( val_str );
+                char b1[64], b2[32], b3[16];
+                snprintf( b1, sizeof(b1), "Status: %s", val_hex );
+                snprintf( b2, sizeof(b2), "St: %s", val_hex );
+                snprintf( b3, sizeof(b3), "St:%u", (U32)frame.mData1 );
+                AddResultString( b1 );
+                AddResultString( b2 );
+                AddResultString( b3 );
             }
             break;
 
         case DataNibble:
             {
                 U8 nib_idx = (U8)frame.mData2;
-                char buf1[64], buf2[32];
-                snprintf( buf1, sizeof(buf1), "Data D%u: %s", nib_idx, val_str );
-                snprintf( buf2, sizeof(buf2), "D%u: %s", nib_idx, val_str );
-                AddResultString( buf1 );
-                AddResultString( buf2 );
-                AddResultString( val_str );
+                char b1[64], b2[32], b3[16];
+                snprintf( b1, sizeof(b1), "Data D%u: %s", nib_idx, val_hex );
+                snprintf( b2, sizeof(b2), "D%u: %s", nib_idx, val_hex );
+                snprintf( b3, sizeof(b3), "D%u:%u", nib_idx, (U32)frame.mData1 );
+                AddResultString( b1 );
+                AddResultString( b2 );
+                AddResultString( b3 );
             }
             break;
 
         case CRCNibble:
             {
                 bool is_error = ( (frame.mFlags & (1 << CrcError)) != 0 );
-                char buf1[64], buf2[32];
+                char b1[64], b2[32], b3[16];
                 if( is_error )
                 {
-                    snprintf( buf1, sizeof(buf1), "CRC ERR: %s", val_str );
-                    snprintf( buf2, sizeof(buf2), "CRC: !%s", val_str );
+                    snprintf( b1, sizeof(b1), "CRC ERR: %s", val_hex );
+                    snprintf( b2, sizeof(b2), "CRC: !%s", val_hex );
+                    snprintf( b3, sizeof(b3), "!CRC" );
                 }
                 else
                 {
-                    snprintf( buf1, sizeof(buf1), "CRC: %s (PASS)", val_str );
-                    snprintf( buf2, sizeof(buf2), "CRC: %s", val_str );
+                    snprintf( b1, sizeof(b1), "CRC: %s (PASS)", val_hex );
+                    snprintf( b2, sizeof(b2), "CRC: %s", val_hex );
+                    snprintf( b3, sizeof(b3), "CRC" );
                 }
-                AddResultString( buf1 );
-                AddResultString( buf2 );
-                AddResultString( val_str );
+                AddResultString( b1 );
+                AddResultString( b2 );
+                AddResultString( b3 );
             }
             break;
 
         case PausePulse:
             {
-                char buf1[64], buf2[32];
-                snprintf( buf1, sizeof(buf1), "Pause: %s Ticks", val_str );
-                snprintf( buf2, sizeof(buf2), "Pause: %sT", val_str );
-                AddResultString( buf1 );
-                AddResultString( buf2 );
+                U32 p_ticks = (U32)frame.mData1;
+                char b1[64], b2[32], b3[16];
+                snprintf( b1, sizeof(b1), "Pause: %u Ticks", p_ticks );
+                snprintf( b2, sizeof(b2), "Pause: %uT", p_ticks );
+                snprintf( b3, sizeof(b3), "P:%uT", p_ticks );
+                AddResultString( b1 );
+                AddResultString( b2 );
+                AddResultString( b3 );
                 AddResultString( "P" );
             }
             break;
@@ -96,7 +105,7 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
                 if( (frame.mFlags & (1 << NibbleNumberError)) != 0 )
                 {
                     char buf[64];
-                    snprintf( buf, sizeof(buf), "Error: %s nibbles detected", val_str );
+                    snprintf( buf, sizeof(buf), "Error: %s nibbles detected", val_hex );
                     AddResultString( buf );
                     AddResultString( "ERR: Count" );
                     AddResultString( "ERR" );
@@ -104,7 +113,7 @@ void SENTAnalyzerResults::GenerateBubbleText( U64 frame_index, Channel& channel,
                 else if( (frame.mFlags & (1 << CrcError)) != 0 )
                 {
                     char buf[64];
-                    snprintf( buf, sizeof(buf), "Error: CRC mismatch (expected %s)", val_str );
+                    snprintf( buf, sizeof(buf), "Error: CRC mismatch (expected %s)", val_hex );
                     AddResultString( buf );
                     AddResultString( "ERR: CRC" );
                     AddResultString( "ERR" );
@@ -124,8 +133,8 @@ void SENTAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase
     ClearTabularText();
     Frame frame = GetFrame( frame_index );
 
-    char val_str[64];
-    AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, val_str, sizeof(val_str) );
+    char val_hex[32];
+    AnalyzerHelpers::GetNumberString( frame.mData1, display_base, 8, val_hex, sizeof(val_hex) );
 
     char text[128];
     switch( (SENTNibbleType)frame.mType )
@@ -134,20 +143,20 @@ void SENTAnalyzerResults::GenerateFrameTabularText( U64 frame_index, DisplayBase
             snprintf( text, sizeof(text), "SYNC (56 Ticks)" );
             break;
         case StatusNibble:
-            snprintf( text, sizeof(text), "Status: %s", val_str );
+            snprintf( text, sizeof(text), "Status: %s", val_hex );
             break;
         case DataNibble:
-            snprintf( text, sizeof(text), "Data D%u: %s", (U32)frame.mData2, val_str );
+            snprintf( text, sizeof(text), "Data D%u: %s", (U32)frame.mData2, val_hex );
             break;
         case CRCNibble:
-            snprintf( text, sizeof(text), "CRC: %s%s", val_str, (frame.mFlags & (1 << CrcError)) ? " (CRC ERROR)" : " (OK)" );
+            snprintf( text, sizeof(text), "CRC: %s%s", val_hex, (frame.mFlags & (1 << CrcError)) ? " (CRC ERROR)" : " (OK)" );
             break;
         case PausePulse:
-            snprintf( text, sizeof(text), "Pause: %s Ticks", val_str );
+            snprintf( text, sizeof(text), "Pause: %u Ticks (%s)", (U32)frame.mData1, val_hex );
             break;
         case ErrorPulse:
         default:
-            snprintf( text, sizeof(text), "Error (%s)", val_str );
+            snprintf( text, sizeof(text), "Error (%s)", val_hex );
             break;
     }
 
