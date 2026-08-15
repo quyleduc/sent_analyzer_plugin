@@ -25,22 +25,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows_x86_64
-          path: build/Analyzers/Release/SENTAnalyzer.dll
+          path: build/Analyzers/Release/*.dll
 
-  macos-universal:
-    name: Build macOS Universal (Intel & Apple Silicon)
+  macos:
+    name: Build macOS (Intel & Apple Silicon)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build
+      - name: Build x86_64 & arm64
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-          cmake --build build --config Release
+          cmake -B build_x86 -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+          cmake --build build_x86 --config Release
+          cmake -B build_arm -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build build_arm --config Release
+          mkdir -p build_universal
+          lipo -create build_x86/Analyzers/*.dylib build_arm/Analyzers/*.dylib -output build_universal/libSENTAnalyzer.dylib || cp build_arm/Analyzers/* build_universal/
       - name: Upload macOS Universal build
         uses: actions/upload-artifact@v4
         with:
           name: macos_universal
-          path: build/Analyzers/*
+          path: build_universal/*
 
   linux-x86_64:
     name: Build Linux x86_64
@@ -63,10 +67,11 @@ jobs:
 
   publish:
     name: Package & Publish Release
-    needs: [windows-x86_64, macos-universal, linux-x86_64]
+    needs: [windows-x86_64, macos, linux-x86_64]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - uses: actions/checkout@v4
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
